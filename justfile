@@ -11,6 +11,7 @@ build-container:
 test-container: prepare-test-env get-reference-values build-container
     #!/bin/bash
     set -euo pipefail
+    podman pull {{image}}
     podman run --rm \
         --security-opt label=disable \
         -v $PWD/test-data/:/var/srv/test-data \
