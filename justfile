@@ -21,7 +21,7 @@ test-container: prepare-test-env get-reference-values build-container
             --esp /var/srv/image/usr/lib/bootupd/updates \
             --efivars /var/srv/test-data/efivars/qemu-ovmf/fcos-42 \
             --mok-variables /var/srv/test-data/mok-variables/fcos-42 \
-            > test/result.json 2>/dev/null
+            > test/result.json
     diff test-fixtures/quay.io_fedora_fedora-coreos_42.20250705.3.0/all-pcrs.json test/result.json || (echo "FAILED" && exit 1)
     echo "OK"
 
