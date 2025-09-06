@@ -46,26 +46,6 @@ get-reference-values:
         git clone git@github.com:confidential-clusters/reference-values.git test-data
     fi
 
-get-test-data:
-    #!/bin/bash
-    set -euo pipefail
-    # set -x
-    mkdir -p test-data/6.15.4-200.fc42.x86_64
-    podman run --rm -ti \
-        --security-opt label=disable \
-        -v $PWD/test-data:/var/srv:rw \
-        {{image}} \
-        cp -a \
-            /usr/lib/bootupd/updates/EFI \
-            /var/srv
-    podman run --rm -ti \
-        --security-opt label=disable \
-        -v $PWD/test-data:/var/srv:rw \
-        {{image}} \
-        cp \
-            /usr/lib/modules/6.15.4-200.fc42.x86_64/vmlinuz \
-            /var/srv/6.15.4-200.fc42.x86_64
-
 prepare-test-env:
     #!/bin/bash
     set -euo pipefail
