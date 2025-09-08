@@ -140,4 +140,4 @@ jobs:
       - name: "Cache build artifacts"
         uses: Swatinem/rust-cache@v2
       - name: "Run just tests"
-        run: just --set image ${{ matrix.target-image-url }} -v $(just -l | grep -E "^ *test-.*$" | grep -v uki)
+        run: just --set image ${{ matrix.target-image-url }} -vvv $(just -l | grep -E "^ *test-.*$" | grep -v uki)

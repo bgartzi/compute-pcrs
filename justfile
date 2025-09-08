@@ -48,7 +48,7 @@ test-container: prepare-test-deps
             --esp /var/srv/image/usr/lib/bootupd/updates \
             --efivars /var/srv/test-data/efivars/qemu-ovmf/${ID}-${VERSION_ID} \
             --mok-variables /var/srv/test-data/mok-variables/${ID}-${VERSION_ID} \
-            > test/result.json 2>/dev/null
+            > test/result.json
     diff test-fixtures/${ID}-${OSTREE_VERSION}/all-pcrs.json test/result.json || (echo "FAILED" && exit 1)
     echo "OK"
 
