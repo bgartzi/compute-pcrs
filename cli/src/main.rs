@@ -10,6 +10,8 @@ use clap::{Args, Parser, Subcommand};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
+use std::path::PathBuf;
+
 use compute_pcrs_lib::*;
 
 #[derive(Parser, Debug)]
@@ -36,7 +38,12 @@ struct SecureBootVarStores {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Compute all possible PCR values from the binaries available in the current environment
+    /// Compute the Authentihash of a PE binary
+    Authentihash {
+        /// Path to a PE binary
+        binary: String,
+    },
+    /// Compute all possible PCR values from the binaries available in the current environment. Meant to be run inside a Bootable Container.
     All {
         #[arg(
             long,
@@ -66,8 +73,8 @@ enum Command {
         )]
         mok_variables: String,
     },
-    /// Compute PCR 4
-    Pcr4 {
+    /// Compute PCR 4 for the non UKI case
+    Pcr4NoUki {
         #[arg(
             long,
             short,
@@ -87,6 +94,25 @@ enum Command {
             help = "Compute PCRs as if secure boot was disabled in the system"
         )]
         no_secureboot: bool,
+    },
+    /// Compute PCR 4 for the Bootable Container UKI case
+    Pcr4 {
+        #[arg(
+            long,
+            short,
+            default_value = "/",
+            help = "Path to the target container image root filesystem"
+        )]
+        rootfs: String,
+        #[arg(
+            long,
+            short,
+            default_value = "/boot/EFI/Linux/uki.efi",
+            help = "Path to the UKI binary"
+        )]
+        uki: String,
+        #[arg(long, help = "Path to a UKI addon (can be passed multiple times)")]
+        uki_addon: Vec<String>,
     },
     /// Compute PCR 7
     Pcr7 {
@@ -143,6 +169,11 @@ fn main() -> Result<()> {
         .init();
 
     match &cli.command {
+        Command::Authentihash { binary } => {
+            let hash = authentihash(&PathBuf::from(binary)).unwrap();
+            println!("{hash}");
+            Ok(())
+        }
         Command::All {
             rootfs,
             secureboot_variables,
@@ -152,7 +183,7 @@ fn main() -> Result<()> {
         } => {
             let rfs = rootfs::RootFSTree::new(rootfs).unwrap();
             let pcrs = vec![
-                compute_pcr4(rfs.vmlinuz(), rfs.esp(), *uki, !no_secureboot),
+                compute_pcr4_nouki(rfs.vmlinuz(), rfs.esp(), *uki, !no_secureboot),
                 compute_pcr7(
                     secureboot_variables.efivars.as_deref(),
                     rfs.esp(),
@@ -167,13 +198,23 @@ fn main() -> Result<()> {
             );
             Ok(())
         }
-        Command::Pcr4 {
+        Command::Pcr4NoUki {
             rootfs,
             uki,
             no_secureboot,
         } => {
             let rfs = rootfs::RootFSTree::new(rootfs).unwrap();
-            let pcr = compute_pcr4(rfs.vmlinuz(), rfs.esp(), *uki, !no_secureboot);
+            let pcr = compute_pcr4_no_uki(rfs.vmlinuz(), rfs.esp(), *uki, !no_secureboot);
+            println!("{}", serde_json::to_string_pretty(&pcr).unwrap());
+            Ok(())
+        }
+        Command::Pcr4 {
+            rootfs,
+            uki,
+            uki_addon,
+        } => {
+            log::debug!("{uki_addon:?}");
+            let pcr = compute_pcr4(rfs.esp(), uki, uki_addon);
             println!("{}", serde_json::to_string_pretty(&pcr).unwrap());
             Ok(())
         }
