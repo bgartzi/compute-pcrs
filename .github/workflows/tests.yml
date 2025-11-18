@@ -25,7 +25,7 @@ jobs:
     name: "Integration Tests, just"
     runs-on: "ubuntu-24.04"
     container:
-      image: "ghcr.io/confidential-clusters/buildroot:latest"
+      image: "ghcr.io/trusted-execution-clusters/buildroot:latest"
       options: "--privileged"
     strategy:
       matrix:
@@ -38,7 +38,7 @@ jobs:
       - name: "Clone reference-values"
         uses: actions/checkout@v5
         with:
-          repository: confidential-clusters/reference-values
+          repository: trusted-execution-clusters/reference-values
           path: test-data
       - name: "Install toolchain"
         uses: dtolnay/rust-toolchain@v1

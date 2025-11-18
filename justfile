@@ -67,7 +67,7 @@ get-reference-values:
     # set -x
     set -euo pipefail
     if [ ! -d test-data ]; then
-        git clone git@github.com:confidential-clusters/reference-values.git test-data
+        git clone git@github.com:trusted-execution-clusters/reference-values.git test-data
     else
         cd test-data
         git pull --ff-only

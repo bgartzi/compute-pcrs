@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-FROM ghcr.io/confidential-clusters/buildroot:latest AS builder
+FROM ghcr.io/trusted-execution-clusters/buildroot:latest AS builder
 WORKDIR /usr/src/compute-pcrs
 COPY . .
 RUN cargo build
