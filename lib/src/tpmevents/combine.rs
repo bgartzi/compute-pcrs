@@ -71,8 +71,19 @@ use std::collections::HashMap;
 use super::*;
 use crate::pcrs::{Pcr, compile_pcrs};
 
+use itertools::Itertools;
+
 #[cfg(test)]
 mod tests;
+
+pub fn combine_images(images: &Vec<Vec<TPMEvent>>) -> Vec<Vec<Pcr>> {
+    images
+        .iter()
+        .combinations(2)
+        .flat_map(|p| combine(p[0], p[1]))
+        .unique()
+        .collect()
+}
 
 pub fn combine(this: &[TPMEvent], that: &[TPMEvent]) -> Vec<Vec<Pcr>> {
     let map_this = tpm_event_id_hashmap(this);

@@ -6,7 +6,7 @@ use crate::pcrs::{Pcr, compile_pcrs};
 use crate::tpmevents::{TPMEvent, TPMEventID};
 
 use hex::decode;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[test]
 fn test_tpm_event_id_hashmap() {
@@ -1206,4 +1206,69 @@ fn test_pcr7_enable_secureboot() {
     let expected = vec![compile_pcrs(&this), compile_pcrs(&that)];
 
     assert_eq!(res, expected);
+}
+
+#[test]
+fn test_image_combinations() {
+    let shim1 = TPMEvent {
+        name: "shim1".into(),
+        pcr: 4,
+        hash: decode("f6f919856f814f30c2043b567c9434b73b658f2360175f18e49da81112216be0").unwrap(),
+        id: TPMEventID::Pcr4Shim,
+    };
+    let shim2 = TPMEvent {
+        name: "shim2".into(),
+        pcr: 4,
+        hash: decode("5921135eb8f625f3050a92d66551ef0a6682b8c393af8ef8379a1332f1f1872f").unwrap(),
+        id: TPMEventID::Pcr4Shim,
+    };
+    let kernel1 = TPMEvent {
+        name: "kernel1".into(),
+        pcr: 4,
+        hash: decode("2b1dc59bc61dbbc3db11a6f3b0708c948efd46cceb7f6c8ea2024b8d1b8c829a").unwrap(),
+        id: TPMEventID::Pcr4Vmlinuz,
+    };
+    let kernel2 = TPMEvent {
+        name: "kernel2".into(),
+        pcr: 4,
+        hash: decode("d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35").unwrap(),
+        id: TPMEventID::Pcr4Vmlinuz,
+    };
+    let kernel3 = TPMEvent {
+        name: "kernel3".into(),
+        pcr: 4,
+        hash: decode("4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce").unwrap(),
+        id: TPMEventID::Pcr4Vmlinuz,
+    };
+    let kernel4 = TPMEvent {
+        name: "kernel4".into(),
+        pcr: 4,
+        hash: decode("4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a").unwrap(),
+        id: TPMEventID::Pcr4Vmlinuz,
+    };
+
+    let images = vec![
+        vec![shim1.clone(), kernel1.clone()],
+        vec![shim1.clone(), kernel2.clone()],
+        vec![shim2.clone(), kernel3.clone()],
+        vec![shim2.clone(), kernel4.clone()],
+    ];
+
+    let res = combine_images(&images);
+    let expected: Vec<Vec<Pcr>> = vec![
+        compile_pcrs(&vec![shim1.clone(), kernel1.clone()]),
+        compile_pcrs(&vec![shim1.clone(), kernel2.clone()]),
+        compile_pcrs(&vec![shim1.clone(), kernel3.clone()]),
+        compile_pcrs(&vec![shim1.clone(), kernel4.clone()]),
+        compile_pcrs(&vec![shim2.clone(), kernel1.clone()]),
+        compile_pcrs(&vec![shim2.clone(), kernel2.clone()]),
+        compile_pcrs(&vec![shim2.clone(), kernel3.clone()]),
+        compile_pcrs(&vec![shim2.clone(), kernel4.clone()]),
+    ];
+
+    assert_eq!(res.len(), expected.len());
+    assert_eq!(
+        HashSet::<_>::from_iter(res.iter().flat_map(|e| e.clone())),
+        HashSet::<_>::from_iter(expected.iter().flat_map(|e| e.clone())),
+    );
 }
