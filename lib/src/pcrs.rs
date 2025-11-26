@@ -19,29 +19,11 @@ mod tests;
 #[serde_as]
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[cfg_attr(test, derive(Debug))]
-pub struct Part {
-    pub name: String,
-    #[serde_as(as = "serde_with::hex::Hex")]
-    pub hash: Vec<u8>,
-}
-
-#[serde_as]
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[cfg_attr(test, derive(Debug))]
 pub struct Pcr {
     pub id: u64,
     #[serde_as(as = "serde_with::hex::Hex")]
     pub value: Vec<u8>,
-    pub parts: Vec<Part>,
-}
-
-impl From<&TPMEvent> for Part {
-    fn from(event: &TPMEvent) -> Part {
-        Part {
-            name: event.name.clone(),
-            hash: event.hash.clone(),
-        }
-    }
+    pub events: Vec<TPMEvent>,
 }
 
 impl Pcr {
@@ -70,7 +52,7 @@ impl Pcr {
         Pcr {
             id: events[0].pcr.into(),
             value: result,
-            parts: events.iter().map(|e| e.into()).collect(),
+            events: events.clone(),
         }
     }
 }
