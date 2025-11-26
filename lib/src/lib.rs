@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Jakob Naucke <jnaucke@redhat.com>
 //
 // SPDX-License-Identifier: MIT
-pub use pcrs::{Part, Pcr};
+pub use pcrs::Pcr;
 
 pub mod certs;
 mod esp;

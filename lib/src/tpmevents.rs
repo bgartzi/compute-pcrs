@@ -103,7 +103,7 @@ impl TPMEventID {
 }
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug, Eq, Hash)]
 pub struct TPMEvent {
     pub name: String,
     pub pcr: u8,
