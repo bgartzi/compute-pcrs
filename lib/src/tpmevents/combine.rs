@@ -66,7 +66,7 @@
  * First,
  *  - We need to know which PCRs we are dealing with.
 */
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use itertools::Itertools;
 
@@ -106,24 +106,33 @@ fn event_subtree(
     event_maps: &Vec<HashMap<TPMEventID, TPMEvent>>,
     groups: Vec<u32>,
 ) -> Option<Vec<tree::EventNode<TPMEvent>>> {
-    assert!(!group_masks_overlap(&groups));
-
     let event_groups = event_id.groups();
     let opts: Vec<_> = event_maps.iter().map(|m| m.get(event_id)).collect();
     // Divergences represent reasons why the tree might diverge
     let mut divs: Vec<(&TPMEvent, Vec<u32>)> = vec![];
     let mut nodes: Vec<tree::EventNode<TPMEvent>> = vec![];
     let mut event_required = true;
-    let mut events_added: HashSet<&TPMEvent> = HashSet::new();
+    // Relates TPMEvents and their global index and div index
+    let mut events_added: HashMap<TPMEvent, (Vec<usize>, usize)> = HashMap::new();
 
     for (i, opt) in opts.iter().enumerate() {
         match opt {
             Some(event) => {
-                if !other_owns_group(event_groups, &groups, i) {
-                    let mut masked_groups = groups.clone();
+                if fully_owned(groups[i], event_groups)
+                    || !other_owns_partially(event_groups, &groups, i)
+                {
+                    let (global_ids, div_idx) = events_added
+                        .entry((*event).clone())
+                        .or_insert_with(|| (vec![], divs.len()));
+
+                    global_ids.push(i);
+                    if divs.len() == *div_idx {
+                        divs.push((&event, groups.clone()));
+                    }
+
+                    let mut masked_groups = divs[*div_idx].1.clone();
                     masked_groups[i] |= event_groups;
-                    divs.push((&event, masked_groups));
-                    events_added.insert(event);
+                    divs[*div_idx].1 = masked_groups;
                 }
             }
             None => event_required = false,
@@ -131,7 +140,10 @@ fn event_subtree(
     }
 
     if events_added.len() == 1 && event_required {
-        divs = events_added.iter().map(|&e| (e, groups.clone())).collect()
+        divs = events_added
+            .iter()
+            .map(|(e, _)| (e, groups.clone()))
+            .collect()
     }
 
     if divs.is_empty() {
@@ -146,7 +158,7 @@ fn event_subtree(
 
     for (event, group_masks) in divs {
         let mut node = tree::EventNode::<TPMEvent>::new(event.clone());
-        if let Some(children) = event_subtree(&event_id.next()?, &event_maps, group_masks) {
+        if let Some(children) = event_subtree(&event_id.next()?, &event_maps, group_masks.clone()) {
             for c in children {
                 node.add_child(c);
             }
@@ -174,12 +186,20 @@ fn group_masks_overlap(groups: &[u32]) -> bool {
     false
 }
 
-// Checks if any of the other images owned the required groups previously
-fn other_owns_group(event_groups: u32, owned_groups: &Vec<u32>, index: usize) -> bool {
+// Checks if any of the other images owns any required group previously
+fn other_owns_partially(event_groups: u32, owned_groups: &Vec<u32>, index: usize) -> bool {
     owned_groups
         .iter()
         .enumerate()
-        .filter(|(i, e)| *i != index && event_groups & **e != 0)
+        .filter(|(i, e)| *i != index && partially_owned(**e, event_groups))
         .count()
         != 0
+}
+
+fn partially_owned(owner: u32, groups: u32) -> bool {
+    groups & owner != 0
+}
+
+fn fully_owned(owner: u32, groups: u32) -> bool {
+    (owner & groups) == groups
 }
