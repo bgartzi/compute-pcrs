@@ -66,35 +66,36 @@
  * First,
  *  - We need to know which PCRs we are dealing with.
 */
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+use itertools::Itertools;
 
 use super::*;
 use crate::pcrs::{Pcr, compile_pcrs};
 
-use itertools::Itertools;
-
 #[cfg(test)]
 mod tests;
 
-pub fn combine_images(images: &Vec<Vec<TPMEvent>>) -> Vec<Vec<Pcr>> {
-    images
-        .iter()
-        .combinations(2)
-        .flat_map(|p| combine(p[0], p[1]))
-        .unique()
-        .collect()
-}
+// pub fn combine_images(images: &Vec<Vec<TPMEvent>>) -> Vec<Vec<Pcr>> {
+//     images
+//         .iter()
+//         .combinations(2)
+//         .flat_map(|p| combine(p[0], p[1]))
+//         .unique()
+//         .collect()
+// }
 
-pub fn combine(this: &[TPMEvent], that: &[TPMEvent]) -> Vec<Vec<Pcr>> {
-    let map_this = tpm_event_id_hashmap(this);
-    let map_that = tpm_event_id_hashmap(that);
+pub fn combine(images: &Vec<Vec<TPMEvent>>) -> Vec<Vec<Pcr>> {
+    let event_maps = images.iter().map(|i| tpm_event_id_hashmap(i)).collect();
+    let groups = vec![0; images.len()];
 
     let event = TPMEventID::PcrRootNodeEvent.next().unwrap();
-    match event_subtree(&event, &map_this, &map_that, 0, 0) {
+    match event_subtree(&event, &event_maps, groups) {
         Some(st) => st
             .iter()
             .flat_map(|t| t.branches())
             .map(|e| compile_pcrs(&e))
+            .unique()
             .collect(),
         None => vec![],
     }
@@ -102,45 +103,35 @@ pub fn combine(this: &[TPMEvent], that: &[TPMEvent]) -> Vec<Vec<Pcr>> {
 
 fn event_subtree(
     event_id: &TPMEventID,
-    map_this: &HashMap<TPMEventID, TPMEvent>,
-    map_that: &HashMap<TPMEventID, TPMEvent>,
-    group_this: u32,
-    group_that: u32,
+    event_maps: &Vec<HashMap<TPMEventID, TPMEvent>>,
+    groups: Vec<u32>,
 ) -> Option<Vec<tree::EventNode<TPMEvent>>> {
-    // Groups can't overlap
-    assert_eq!(group_this & group_that, 0);
-    let opt_this = map_this.get(event_id);
-    let opt_that = map_that.get(event_id);
-    // Divergences contains tuples with events, and this/that masked groups
-    let mut divs: Vec<(&TPMEvent, u32, u32)> = vec![];
-    let mut nodes: Vec<tree::EventNode<TPMEvent>> = vec![];
-    let mut event_required = false;
-    let event_groups = event_id.groups();
+    assert!(!group_masks_overlap(&groups));
 
-    if let Some(event_this) = opt_this
-        && let Some(event_that) = opt_that
-    {
-        event_required = true;
-        if event_this == event_that {
-            divs.push((event_this, group_this, group_that));
-        } else {
-            if (event_groups & group_that) == 0 {
-                divs.push((event_this, group_this | event_groups, group_that));
+    let event_groups = event_id.groups();
+    let opts: Vec<_> = event_maps.iter().map(|m| m.get(event_id)).collect();
+    // Divergences represent reasons why the tree might diverge
+    let mut divs: Vec<(&TPMEvent, Vec<u32>)> = vec![];
+    let mut nodes: Vec<tree::EventNode<TPMEvent>> = vec![];
+    let mut event_required = true;
+    let mut events_added: HashSet<&TPMEvent> = HashSet::new();
+
+    for (i, opt) in opts.iter().enumerate() {
+        match opt {
+            Some(event) => {
+                if !other_owns_group(event_groups, &groups, i) {
+                    let mut masked_groups = groups.clone();
+                    masked_groups[i] |= event_groups;
+                    divs.push((&event, masked_groups));
+                    events_added.insert(event);
+                }
             }
-            if (event_groups & group_this) == 0 {
-                divs.push((event_that, group_this, group_that | event_groups));
-            }
+            None => event_required = false,
         }
-    } else if let Some(event_this) = opt_this {
-        // Assume the event is not required if it's only on one side
-        if (event_groups & group_that) == 0 {
-            divs.push((event_this, group_this | event_groups, group_that));
-        }
-    } else if let Some(event_that) = opt_that {
-        // Assume the event is not required if it's only on one side
-        if (event_groups & group_this) == 0 {
-            divs.push((event_that, group_this, group_that | event_groups));
-        }
+    }
+
+    if events_added.len() == 1 && event_required {
+        divs = events_added.iter().map(|&e| (e, groups.clone())).collect()
     }
 
     if divs.is_empty() {
@@ -150,19 +141,12 @@ fn event_subtree(
             // TODO: switch from panic to result?
             panic!("Event group conflict hit");
         }
-        return event_subtree(
-            &event_id.next()?,
-            map_this,
-            map_that,
-            group_this,
-            group_that,
-        );
+        return event_subtree(&event_id.next()?, event_maps, groups);
     }
 
-    for (event, g_this, g_that) in divs {
+    for (event, group_masks) in divs {
         let mut node = tree::EventNode::<TPMEvent>::new(event.clone());
-        if let Some(children) = event_subtree(&event_id.next()?, map_this, map_that, g_this, g_that)
-        {
+        if let Some(children) = event_subtree(&event_id.next()?, &event_maps, group_masks) {
             for c in children {
                 node.add_child(c);
             }
@@ -175,4 +159,27 @@ fn event_subtree(
 
 fn tpm_event_id_hashmap(events: &[TPMEvent]) -> HashMap<TPMEventID, TPMEvent> {
     events.iter().map(|e| (e.id.clone(), e.clone())).collect()
+}
+
+fn group_masks_overlap(groups: &[u32]) -> bool {
+    let mut sum: u32 = 0;
+
+    for group in groups.iter() {
+        if sum & group != 0 {
+            return true;
+        }
+        sum |= group;
+    }
+
+    false
+}
+
+// Checks if any of the other images owned the required groups previously
+fn other_owns_group(event_groups: u32, owned_groups: &Vec<u32>, index: usize) -> bool {
+    owned_groups
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| *i != index && event_groups & **e != 0)
+        .count()
+        != 0
 }

@@ -118,7 +118,7 @@ fn test_pcr4_kernel_update() {
         },
     ];
 
-    let res = combine(&this, &that);
+    let res = combine(&vec![this.clone(), that.clone()]);
     assert_eq!(
         res,
         vec![
@@ -533,7 +533,7 @@ fn test_pcr4_pcr7_bootloader_and_kernel_update() {
         },
     ];
 
-    let res = combine(&this, &that);
+    let res = combine(&vec![this.clone(), that.clone()]);
     let expected = vec![
         compile_pcrs(&this),
         compile_pcrs(&expected_that_kernel_this_bootloader),
@@ -949,7 +949,7 @@ fn test_pcr4_pcr7_bootloader_and_kernel_update_same_certs() {
         },
     ];
 
-    let res = combine(&this, &that);
+    let res = combine(&vec![this.clone(), that.clone()]);
     let expected = vec![
         compile_pcrs(&this),
         compile_pcrs(&expected_that_kernel_this_bootloader),
@@ -1010,7 +1010,7 @@ fn test_pcr4_pcr7_bootloader_secureboot_update() {
         },
     ];
 
-    combine(&this, &that);
+    combine(&vec![this.clone(), that.clone()]);
 }
 
 #[test]
@@ -1202,7 +1202,7 @@ fn test_pcr7_enable_secureboot() {
         },
     ];
 
-    let res = combine(&this, &that);
+    let res = combine(&vec![this.clone(), that.clone()]);
     let expected = vec![compile_pcrs(&this), compile_pcrs(&that)];
 
     assert_eq!(res, expected);
@@ -1254,7 +1254,7 @@ fn test_image_combinations() {
         vec![shim2.clone(), kernel4.clone()],
     ];
 
-    let res = combine_images(&images);
+    let res = combine(&images);
     let expected: Vec<Vec<Pcr>> = vec![
         compile_pcrs(&vec![shim1.clone(), kernel1.clone()]),
         compile_pcrs(&vec![shim1.clone(), kernel2.clone()]),
