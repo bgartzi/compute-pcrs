@@ -2,7 +2,7 @@
   "pcrs": [
     {
       "id": 4,
-      "value": "551bbd142a716c67cd78336593c2eb3b547b575e810ced4501d761082b5cd4a8",
+      "value": "eedb05d189eabc928d16f5b5c758479894ad8921064efd26361eb11b3211f1ad",
       "parts": [
         {
           "name": "EV_EFI_ACTION",
@@ -22,7 +22,7 @@
         },
         {
           "name": "EV_EFI_BOOT_SERVICES_APPLICATION",
-          "hash": "2b1dc59bc61dbbc3db11a6f3b0708c948efd46cceb7f6c8ea2024b8d1b8c829a"
+          "hash": "6115ef506eecf507d43279d2b5f11573c4011fab0f5bba6e22bb72dbf1d1ffd9"
         }
       ]
     },

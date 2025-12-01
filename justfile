@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-image := "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/42.20250705.3.0/x86_64/fedora-coreos-42.20250705.3.0-ostree.x86_64.ociarchive"
+image := "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/42.20250929.3.0/x86_64/fedora-coreos-42.20250929.3.0-ostree.x86_64.ociarchive"
 target_container_ociarchive_path := absolute_path(join("/tmp", file_name(image)))
 target_container_name := without_extension(file_name(image))
 target_container_osinfo_path := "/tmp/compute-pcrs-osinfo"
