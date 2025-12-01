@@ -34,9 +34,9 @@ jobs:
           - "https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.19/4.19.0/rhcos-4.19.0-x86_64-ostree.x86_64.ociarchive"
     steps:
       - name: "Check out repository"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: "Clone reference-values"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: trusted-execution-clusters/reference-values
           path: test-data
