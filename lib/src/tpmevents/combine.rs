@@ -101,6 +101,11 @@ pub fn combine(images: &Vec<Vec<TPMEvent>>) -> Vec<Vec<Pcr>> {
     }
 }
 
+/// For recovery, we would need some information such as
+///     - pcr number
+///     - images involved in the conflict
+///         * Is everyone part of the conflict?
+///     - 
 fn event_subtree(
     event_id: &TPMEventID,
     event_maps: &Vec<HashMap<TPMEventID, TPMEvent>>,
@@ -114,13 +119,22 @@ fn event_subtree(
     let mut event_required = true;
     // Relates TPMEvents and their global index and div index
     let mut events_added: HashMap<TPMEvent, (Vec<usize>, usize)> = HashMap::new();
+    let mut conflicts: Vec<usize> = vec![];
+
+    println!("-----------------------------------------------------------------");
+    println!("PCR Event {event_id:?}");
+    println!("Groups needed:   {:#034b}", event_groups);
+    for (j, g) in groups.iter().enumerate() {
+        println!("Group {j} has:     {:#034b}", g);
+    }
+    println!("");
 
     for (i, opt) in opts.iter().enumerate() {
         match opt {
             Some(event) => {
-                if fully_owned(groups[i], event_groups)
-                    || !other_owns_partially(event_groups, &groups, i)
-                {
+                // FIXME: Should we check if the missing groups we need to lock
+                //        aren't locked by anyone else?
+                if can_own(i, &groups, event_groups) {
                     let (global_ids, div_idx) = events_added
                         .entry((*event).clone())
                         .or_insert_with(|| (vec![], divs.len()));
@@ -133,6 +147,25 @@ fn event_subtree(
                     let mut masked_groups = divs[*div_idx].1.clone();
                     masked_groups[i] |= event_groups;
                     divs[*div_idx].1 = masked_groups;
+                    println!("Pushing image {i}, total divs: {}", divs.len());
+                    println!("Groups masked:   {:#034b}", divs[*div_idx].1[i]);
+                //} else if !other_owns_fully(i, &groups, event_groups) {
+                } else if other_owns_partially(i, &groups, event_groups) && !other_owns_fully(i, &groups, event_groups) {
+                    // conflict pairs.
+                    // We need to know i
+                    // and who is locking those groups that we are missing
+                    //
+                    // NOTE: Is it different when
+                    //  - Others partially own a group
+                    //      - This means we're facing a conflict
+                    //  - Others completely own a group
+                    //      - I think this would mean we're filling another
+                    //        branch that we don't care about.
+                    println!("Considering conflict");
+                    println!("\tImage {i}");
+                    println!("\tFully owned? {}", fully_owned(groups[i], event_groups));
+                    println!("\tPartly owned? {}", other_owns_partially(i, &groups, event_groups));
+                    conflicts.push(i)
                 }
             }
             None => event_required = false,
@@ -146,13 +179,22 @@ fn event_subtree(
             .collect()
     }
 
+    //if !conflicts.is_empty() && divs.is_empty() {
+    if !conflicts.is_empty() {
+        panic!("NEW EVENT GROUP DETECTION ALG");
+    }
+
     if divs.is_empty() {
         // Event is required but wasn't pushed to divergences...
         // Means we met an event id/tree branching group conflict
         if event_required {
+            // NOTE: (remove) It's impossible that conflicts.is_empty() now
             // TODO: switch from panic to result?
+            println!("N divs: {}" ,divs.len());
+            println!("Conflicts: {:?}", conflicts);
             panic!("Event group conflict hit");
         }
+        println!("\n\n");
         return event_subtree(&event_id.next()?, event_maps, groups);
     }
 
@@ -165,6 +207,9 @@ fn event_subtree(
         }
         nodes.push(node);
     }
+
+    println!("pushed {} nodes", nodes.len());
+    println!("\n\n");
 
     Some(nodes)
 }
@@ -187,11 +232,11 @@ fn group_masks_overlap(groups: &[u32]) -> bool {
 }
 
 // Checks if any of the other images owns any required group previously
-fn other_owns_partially(event_groups: u32, owned_groups: &Vec<u32>, index: usize) -> bool {
+fn other_owns_partially(owner_index: usize, owned_groups: &Vec<u32>, event_groups: u32) -> bool {
     owned_groups
         .iter()
         .enumerate()
-        .filter(|(i, e)| *i != index && partially_owned(**e, event_groups))
+        .filter(|(i, e)| *i != owner_index && partially_owned(**e, event_groups))
         .count()
         != 0
 }
@@ -202,4 +247,18 @@ fn partially_owned(owner: u32, groups: u32) -> bool {
 
 fn fully_owned(owner: u32, groups: u32) -> bool {
     (owner & groups) == groups
+}
+
+fn other_owns_fully(owner_index: usize, owned_groups: &Vec<u32>, event_groups: u32) -> bool {
+    owned_groups
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| *i != owner_index && fully_owned(**e, event_groups))
+        .count()
+        != 0
+}
+
+fn can_own(owner_index: usize, owned_groups: &Vec<u32>, event_groups: u32) -> bool {
+    let missing_groups = !owned_groups[owner_index] & event_groups;
+    !other_owns_partially(owner_index, owned_groups, missing_groups)
 }

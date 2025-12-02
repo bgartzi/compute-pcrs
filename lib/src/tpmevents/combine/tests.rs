@@ -1272,3 +1272,185 @@ fn test_image_combinations() {
         HashSet::<_>::from_iter(expected.iter().flat_map(|e| e.clone())),
     );
 }
+
+#[test]
+#[should_panic]
+fn test_combine_triple_conflict() {
+    let common = TPMEvent {
+        name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+        pcr: 7,
+        hash: decode("dea7b80ab53a3daaa24d5cc46c64e1fa9ffd03739f90aadbd8c0867c4a5b4890")
+            .unwrap(),
+        id: TPMEventID::Pcr7ShimCert,
+    };
+    let shim1 = TPMEvent {
+            name: "EV_EFI_BOOT_SERVICES_APPLICATION".into(),
+            pcr: 4,
+            hash: decode("877e09bcc3260555d8c20089bdc2189d01a0c733f0fd5dfe70afdbe9210aee65")
+                .unwrap(),
+            id: TPMEventID::Pcr4Shim,
+    };
+    let shim2 = TPMEvent {
+            name: "EV_EFI_BOOT_SERVICES_APPLICATION".into(),
+            pcr: 4,
+            hash: decode("635a47966044647b0841fd7cdd252f43e0a0dbe754ba912f5bccdac5f51ae747")
+                .unwrap(),
+            id: TPMEventID::Pcr4Shim,
+    };
+
+    let image1 = vec![
+        shim1.clone(),
+        TPMEvent {
+            name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+            pcr: 7,
+            hash: decode("03f43b8f2e62bd8d9c3ccb8f9d8f8b269c44ef1c842613e2e5472179b2406950")
+                .unwrap(),
+            id: TPMEventID::Pcr7SecureBoot,
+        },
+        common.clone()
+    ];
+    let image2 = vec![
+        shim2.clone(),
+        TPMEvent {
+            name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+            pcr: 7,
+            hash: decode("88ddfd89852406e3916e28a79407d56403c8ad5e79f0eecacd14b348fd1a6678")
+                .unwrap(),
+            id: TPMEventID::Pcr7SecureBoot,
+        },
+        common.clone()
+    ];
+    let image3 = vec![
+        shim2.clone(),
+        TPMEvent {
+            name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+            pcr: 7,
+            hash: decode("b0542da3f90bad69318e16ec7fcb6b13b089971886999e08bec91cea34891f0f")
+                .unwrap(),
+            id: TPMEventID::Pcr7SecureBoot,
+        },
+        common.clone()
+    ];
+
+    let res = combine(&vec![
+        image1.clone(),
+        image2.clone(),
+        image3.clone()
+    ]);
+}
+
+#[test]
+//#[should_panic]
+fn test_combine_conflict_quick() {
+    let common = TPMEvent {
+        name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+        pcr: 7,
+        hash: decode("dea7b80ab53a3daaa24d5cc46c64e1fa9ffd03739f90aadbd8c0867c4a5b4890")
+            .unwrap(),
+        id: TPMEventID::Pcr7ShimCert,
+    };
+    let shim1 = TPMEvent {
+            name: "EV_EFI_BOOT_SERVICES_APPLICATION".into(),
+            pcr: 4,
+            hash: decode("877e09bcc3260555d8c20089bdc2189d01a0c733f0fd5dfe70afdbe9210aee65")
+                .unwrap(),
+            id: TPMEventID::Pcr4Shim,
+    };
+    let shim2 = TPMEvent {
+            name: "EV_EFI_BOOT_SERVICES_APPLICATION".into(),
+            pcr: 4,
+            hash: decode("635a47966044647b0841fd7cdd252f43e0a0dbe754ba912f5bccdac5f51ae747")
+                .unwrap(),
+            id: TPMEventID::Pcr4Shim,
+    };
+
+    let image1 = vec![
+        shim1.clone(),
+        common.clone()
+    ];
+    let image2 = vec![
+        shim1.clone(),
+        common.clone()
+    ];
+    let image3 = vec![
+        shim2.clone(),
+        common.clone()
+    ];
+
+    let res = combine(&vec![
+        image1.clone(),
+        image2.clone(),
+        image3.clone()
+    ]);
+    //panic!("we are not asserting :(");
+}
+
+#[test]
+//#[should_panic]
+fn test_combine_study() {
+    let shim1 = TPMEvent {
+            name: "EV_EFI_BOOT_SERVICES_APPLICATION".into(),
+            pcr: 4,
+            hash: decode("877e09bcc3260555d8c20089bdc2189d01a0c733f0fd5dfe70afdbe9210aee65")
+                .unwrap(),
+            id: TPMEventID::Pcr4Shim,
+    };
+    let shim2 = TPMEvent {
+            name: "EV_EFI_BOOT_SERVICES_APPLICATION".into(),
+            pcr: 4,
+            hash: decode("635a47966044647b0841fd7cdd252f43e0a0dbe754ba912f5bccdac5f51ae747")
+                .unwrap(),
+            id: TPMEventID::Pcr4Shim,
+    };
+    let shim_cert_1 = TPMEvent {
+        name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+        pcr: 7,
+        hash: decode("dea7b80ab53a3daaa24d5cc46c64e1fa9ffd03739f90aadbd8c0867c4a5b4890")
+            .unwrap(),
+        id: TPMEventID::Pcr7ShimCert,
+    };
+    let shim_cert_2 = TPMEvent {
+        name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+        pcr: 7,
+        hash: decode("c14c8e6b8ce2582c6a03054c9248030b86681da78c69b35d1ec523de5133620a")
+            .unwrap(),
+        id: TPMEventID::Pcr7ShimCert,
+    };
+    let sb_1 = TPMEvent {
+        name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+        pcr: 7,
+        hash: decode("18d48ffd9c5885333db86bf67f74142df854539c9d55d0c225561fae928b171f")
+            .unwrap(),
+        id: TPMEventID::Pcr7SecureBoot,
+    };
+    let sb_2 = TPMEvent {
+        name: "EV_EFI_VARIABLE_DRIVER_CONFIG".into(),
+        pcr: 7,
+        hash: decode("b32f1165d4016c05e1f65c0d3cb3922eb2e43f6a7898954da1957d757dd4e42e")
+            .unwrap(),
+        id: TPMEventID::Pcr7SecureBoot,
+    };
+
+    let image1 = vec![
+        shim1.clone(),
+        sb_1.clone(),
+        shim_cert_1.clone()
+    ];
+    let image2 = vec![
+        shim1.clone(),
+        sb_1.clone(),
+        shim_cert_1.clone()
+    ];
+    let image3 = vec![
+        shim2.clone(),
+        sb_2.clone(),
+        shim_cert_2.clone()
+    ];
+
+    let res = combine(&vec![
+        image1.clone(),
+        image2.clone(),
+        image3.clone()
+    ]);
+    panic!("we are not asserting :(");
+}
