@@ -17,8 +17,8 @@ const PCR_INIT_VALUE: [u8; 32] = [
 mod tests;
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Part {
     pub name: String,
     #[serde_as(as = "serde_with::hex::Hex")]
@@ -26,8 +26,8 @@ pub struct Part {
 }
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Pcr {
     pub id: u64,
     #[serde_as(as = "serde_with::hex::Hex")]
